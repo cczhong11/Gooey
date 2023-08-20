@@ -107,7 +107,6 @@ class ProcessController(object):
                 shell=self.shell_execution,
                 env=env,
                 creationflags=creationflag,
-                encoding=self.encoding,
             )
         except:
             self._process = subprocess.Popen(
@@ -118,7 +117,6 @@ class ProcessController(object):
                 shell=self.shell_execution,
                 env=env,
                 creationflags=creationflag,
-                encoding=self.encoding,
             )
 
         # the message pump depends on the wx instance being initiated and its
