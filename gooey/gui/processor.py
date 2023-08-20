@@ -17,6 +17,7 @@ from gooey.python_bindings.types import GooeyParams
 
 try:
     import _winapi
+
     creationflag = subprocess.CREATE_NEW_PROCESS_GROUP
 except ModuleNotFoundError:
     # default Popen creation flag
@@ -24,20 +25,27 @@ except ModuleNotFoundError:
 
 
 class ProcessController(object):
-
     @classmethod
     def of(cls, params: GooeyParams):
         return cls(
-            params.get('progress_regex'),
-            params.get('progress_expr'),
-            params.get('hide_progress_msg'),
-            params.get('encoding'),
-            params.get('requires_shell'),
-            params.get('shutdown_signal', signal.SIGTERM)
+            params.get("progress_regex"),
+            params.get("progress_expr"),
+            params.get("hide_progress_msg"),
+            params.get("encoding"),
+            params.get("requires_shell"),
+            params.get("shutdown_signal", signal.SIGTERM),
         )
 
-    def __init__(self, progress_regex, progress_expr, hide_progress_msg,
-                 encoding, shell=True, shutdown_signal=signal.SIGTERM, testmode=False):
+    def __init__(
+        self,
+        progress_regex,
+        progress_expr,
+        hide_progress_msg,
+        encoding,
+        shell=True,
+        shutdown_signal=signal.SIGTERM,
+        testmode=False,
+    ):
         self._process = None
         self.progress_regex = progress_regex
         self.progress_expr = progress_expr
@@ -54,7 +62,7 @@ class ProcessController(object):
 
     def poll(self):
         if not self._process:
-            raise Exception('Not started!')
+            raise Exception("Not started!")
         return self._process.poll()
 
     def stop(self):
@@ -93,15 +101,24 @@ class ProcessController(object):
         try:
             self._process = subprocess.Popen(
                 command.encode(sys.getfilesystemencoding()),
-                stdout=subprocess.PIPE, stdin=subprocess.PIPE,
-                stderr=subprocess.STDOUT, shell=self.shell_execution, env=env,
-                creationflags=creationflag)
+                stdout=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                shell=self.shell_execution,
+                env=env,
+                creationflags=creationflag,
+                encoding=self.encoding,
+            )
         except:
             self._process = subprocess.Popen(
                 command,
-                stdout=subprocess.PIPE, stdin=subprocess.PIPE,
-                stderr = subprocess.STDOUT, shell = self.shell_execution, env=env,
-                creationflags=creationflag
+                stdout=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                shell=self.shell_execution,
+                env=env,
+                creationflags=creationflag,
+                encoding=self.encoding,
             )
 
         # the message pump depends on the wx instance being initiated and its
@@ -112,10 +129,10 @@ class ProcessController(object):
             t.start()
 
     def _forward_stdout(self, process):
-        '''
+        """
         Reads the stdout of `process` and forwards lines and progress
         to any interested subscribers
-        '''
+        """
         while True:
             line = process.stdout.readline()
             if not line:
@@ -124,15 +141,14 @@ class ProcessController(object):
 
             pub.send_message(events.PROGRESS_UPDATE, progress=_progress)
             if _progress is None or self.hide_progress_msg is False:
-                pub.send_message(events.CONSOLE_UPDATE,
-                                 msg=line.decode(self.encoding))
+                pub.send_message(events.CONSOLE_UPDATE, msg=line.decode(self.encoding))
         pub.send_message(events.EXECUTION_COMPLETE)
 
     def _extract_progress(self, text):
-        '''
+        """
         Finds progress information in the text using the
         user-supplied regex and calculation instructions
-        '''
+        """
         # monad-ish dispatch to avoid the if/else soup
         find = partial(re.search, string=text.strip().decode(self.encoding))
         regex = unit(self.progress_regex)
@@ -141,18 +157,18 @@ class ProcessController(object):
         return result
 
     def _calculate_progress(self, match):
-        '''
+        """
         Calculates the final progress value found by the regex
-        '''
+        """
         if not self.progress_expr:
             return safe_float(match.group(1))
         else:
             return self._eval_progress(match)
 
     def _eval_progress(self, match):
-        '''
+        """
         Runs the user-supplied progress calculation rule
-        '''
+        """
         _locals = {k: safe_float(v) for k, v in match.groupdict().items()}
         if "x" not in _locals:
             _locals["x"] = [safe_float(x) for x in match.groups()]
@@ -160,4 +176,3 @@ class ProcessController(object):
             return int(eval(self.progress_expr, {}, _locals))
         except:
             return None
-
